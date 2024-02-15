@@ -1,0 +1,456 @@
+using Microsoft.WindowsAPICodePack.Dialogs;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Runtime.InteropServices.ComTypes;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Windows.Forms;
+using System.Xml.Linq;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+
+
+namespace CustomTool_Test
+{
+
+
+    public partial class Form1 : Form
+    {
+        private BackgroundWorker backgroundWorker;
+
+        public Form1()
+        {
+            InitializeComponent();
+            backgroundWorker = new BackgroundWorker();
+            backgroundWorker.WorkerReportsProgress = true;
+            backgroundWorker.DoWork += BackgroundWorker_DoWork;
+            backgroundWorker.ProgressChanged += BackgroundWorker_ProgressChanged;
+            backgroundWorker.RunWorkerCompleted += BackgroundWorker_RunWorkerCompleted;
+            CheckIPAddress();
+            lboxResult.DoubleClick += LboxPaths_DoubleClick;
+
+
+
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            this.Icon = Icon.FromHandle(Properties.Resources.icon.GetHicon());
+        }
+        private void btnopenfile_Click(object sender, EventArgs e)
+        {
+            CommonOpenFileDialog folderBrowserDialog = new CommonOpenFileDialog();
+
+            folderBrowserDialog.InitialDirectory = tboxSearch.Text;
+            folderBrowserDialog.IsFolderPicker = true;
+            if (folderBrowserDialog.ShowDialog() == CommonFileDialogResult.Ok)
+            {
+                tboxSearch.Text = folderBrowserDialog.FileName;
+            }
+        }
+
+        private void BtnFMSearch_Click(object sender, EventArgs e)
+        {
+
+            lboxResult.Items.Clear(); // ListBox 초기화
+
+            if (string.IsNullOrWhiteSpace(tboxSearch.Text))
+            {
+                MessageBox.Show("파일 경로를 입력하세요.", "경고", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return; // 경로가 없으면 메서드 종료
+            }
+
+            string folderPath = tboxSearch.Text; // 검색할 폴더 경로
+            string name = "fm.txt";
+            string[] files = Directory.GetFiles(folderPath, "*.txt"); // 폴더 내의 모든 txt 파일 가져오기
+
+            HashSet<string> uniqueFMs = new HashSet<string>(); // 중복 없는 IP 주소를 저장할 HashSet 생성
+
+            foreach (string file in files)
+            {
+                SearchFMInFile(file, uniqueFMs);
+            }
+
+            // lboxResult 에 FM 중복 제거 목록 보여줌
+            //foreach (string fm in uniqueFMs)
+            //{
+            //    lboxResult.Items.Add(fm.ToString());
+            //}
+
+            LboxShowLog_Path(folderPath, name);
+
+            SaveListBoxContent(uniqueFMs, name);
+        }
+
+        private void Btnip_Click(object sender, EventArgs e)
+        {
+
+
+            lboxResult.Items.Clear(); // ListBox 초기화
+
+            if (string.IsNullOrWhiteSpace(tboxSearch.Text))
+            {
+                MessageBox.Show("파일 경로를 입력하세요.", "경고", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return; // 경로가 없으면 메서드 종료
+            }
+
+            string folderPath = tboxSearch.Text; // 검색할 폴더 경로
+            string name = "ip.txt";
+
+            progressBarLoad.Visible = true;
+
+            backgroundWorker.RunWorkerAsync(new Tuple<string, string>(folderPath, name));
+
+        }
+
+
+        //private void Btnip_Click(object sender, EventArgs e)
+        //{
+        //    lboxResult.Items.Clear(); // ListBox 초기화
+
+        //    if (string.IsNullOrWhiteSpace(tboxSearch.Text))
+        //    {
+        //        MessageBox.Show("파일 경로를 입력하세요.", "경고", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        //        return; // 경로가 없으면 메서드 종료
+        //    }
+
+        //    string folderPath = tboxSearch.Text; // 검색할 폴더 경로
+        //    string name = "ip.txt";
+        //    string[] files = Directory.GetFiles(folderPath, "*.txt"); // 폴더 내의 모든 txt 파일 가져오기
+
+        //    HashSet<string> uniqueIPs = new HashSet<string>(); // 중복 없는 IP 주소를 저장할 HashSet 생성
+
+        //    foreach (string file in files)
+        //    {
+        //        SearchIPInFile(file, uniqueIPs);
+        //    }
+
+        //    // lboxResult 에 ip 중복 제거 목록 보여줌
+        //    //foreach (string ip in uniqueIPs)
+        //    //{
+        //    //    lboxResult.Items.Add(ip.ToString());
+        //    //}
+
+        //    LboxShowLog_Path(folderPath, name);
+        //    SaveListBoxContent(uniqueIPs, name);
+        //}
+
+        private void Btnsystemid_Click(object sender, EventArgs e)
+        {
+            lboxResult.Items.Clear(); // ListBox 초기화
+
+            if (string.IsNullOrWhiteSpace(tboxSearch.Text))
+            {
+                MessageBox.Show("파일 경로를 입력하세요.", "경고", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return; // 경로가 없으면 메서드 종료
+            }
+
+            string folderPath = tboxSearch.Text; // 검색할 폴더 경로
+            string name = "Systemid.txt";
+            string[] files = Directory.GetFiles(folderPath, "*.txt"); // 폴더 내의 모든 txt 파일 가져오기
+
+            HashSet<string> uniqueSYSIDs = new HashSet<string>(); // 중복 없는 SYSTEMID 주소를 저장할 HashSet 생성
+
+            foreach (string file in files)
+            {
+                SearchSYSIDInFile(file, uniqueSYSIDs);
+            }
+
+            // lboxResult 에 SYSTEMID 중복 제거 목록 보여줌
+            //foreach (string sysid in uniqueSYSIDs)
+            //{
+            //    lboxResult.Items.Add(sysid.ToString());
+            //}
+
+            LboxShowLog_Path(folderPath, name);
+            SaveListBoxContent(uniqueSYSIDs, name);
+        }
+
+        private void BtnOpenFolder_Click(object sender, EventArgs e)
+        {
+            OpenExistFolder();
+        }
+
+        private void BtnDuplicateLog_Click(object sender, EventArgs e)
+        {
+
+            lboxResult.Items.Clear(); // ListBox 초기화
+
+            if (string.IsNullOrWhiteSpace(tboxSearch.Text))
+            {
+                MessageBox.Show("파일 경로를 입력하세요.", "경고", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return; // 경로가 없으면 메서드 종료
+            }
+
+            string folderPath = tboxSearch.Text; // 검색할 폴더 경로
+            string name = "log.txt";
+            string[] files = Directory.GetFiles(folderPath, "*.txt"); // 폴더 내의 모든 txt 파일 가져오기
+
+            HashSet<string> uniqueMatches = new HashSet<string>(); // 중복 없는 로그를 저장할 HashSet 생성
+
+
+            foreach (string file in files)
+            {
+                SearchDuplicateInFile(file, uniqueMatches);
+
+            }
+            LboxShowLog_Path(folderPath, name);
+            SaveListBoxContent(uniqueMatches, name);
+
+        }
+
+
+        private void SearchSYSIDInFile(string filePath, HashSet<string> uniqueSYSIDs)
+        {
+            string[] lines = File.ReadAllLines(filePath); // 파일의 모든 줄 읽기
+
+            foreach (string line in lines)
+            {
+                // SYSTEMID 주소 패턴 찾기
+                // MatchCollection matches = Regex.Matches(line, @"@([a-f0-9]+-[a-f0-9]+-[a-f0-9]+-[a-f0-9]+)@");
+                MatchCollection matches = Regex.Matches(line, @"\b([a-f0-9]+-[a-f0-9]+-[a-f0-9]+-[a-f0-9]+)\b");
+
+                foreach (Match match in matches)
+                {
+                    uniqueSYSIDs.Add(match.Groups[1].Value); // ListBox에 기록
+                }
+            }
+        }
+
+        private void SearchIPInFile(string filePath, HashSet<string> uniqueIPs)
+        {
+            string[] lines = File.ReadAllLines(filePath); // 파일의 모든 줄 읽기
+
+            foreach (string line in lines)
+            {
+                MatchCollection matches = Regex.Matches(line, @"\b(?:\d{1,3}\.){3}\d{1,3}\b"); // IP 주소 패턴 찾기
+
+                foreach (Match match in matches)
+                {
+                    uniqueIPs.Add(match.Value); // ListBox에 기록
+                }
+            }
+        }
+
+        private void SearchFMInFile(string filePath, HashSet<string> uniqueFMs)
+        {
+            string[] lines = File.ReadAllLines(filePath); // 파일의 모든 줄 읽기
+
+            foreach (string line in lines)
+            {
+                MatchCollection matches = Regex.Matches(line, @"\*00000000\*(\w{8})\*"); // FM 주소 패턴 찾기
+
+                foreach (Match match in matches)
+                {
+                    string randomValue = match.Groups[1].Value;
+                    uniqueFMs.Add(randomValue.ToString()); // ListBox에 기록
+                }
+            }
+        }
+
+        private void SearchDuplicateInFile(string filePath, HashSet<string> uniqueMatches)
+        {
+            string[] lines = File.ReadAllLines(filePath); // 파일의 모든 줄 읽기
+
+            // string pattern = @"\*00000000\*(\w{8})\*";
+            string pattern = @"\*(\w{8})\*00000000\*"; // f3 로 체크
+            // StringBuilder SbDupCheck = new StringBuilder();
+
+            foreach (string line in lines)
+            {
+                using (StreamReader sr = new StreamReader(filePath))
+                {
+
+                    string lineS;
+                    // 파일의 각 라인 읽기
+                    while ((lineS = sr.ReadLine()) != null)
+                    {
+                        // 정규 표현식과 일치하는 패턴 찾기
+                        Match match = Regex.Match(line, pattern);
+                        if (match.Success)
+                        {
+                            // 패턴과 일치하는 그룹 추가
+                            string matchedValue = line;
+                            uniqueMatches.Add(matchedValue.ToString());
+                            // SbDupCheck.AppendLine(matchedValue); // SbDupCheck를 lboxResult.Items.Add(SbDupCheck); 에 추가시 listbox 에 전체 로그 보여줌
+                        }
+                    }
+
+                }
+
+            }
+
+        }
+
+        private void SaveListBoxContent(HashSet<string> uniqueItems, string _name)
+        {
+
+            string todayFoler = Path.Combine(Application.StartupPath, DateTime.Now.ToString("yyyy-MM-dd"));
+            Directory.CreateDirectory(todayFoler);
+
+            string filePath = Path.Combine(todayFoler, _name);
+
+
+
+            try
+            {
+                using (StreamWriter writer = new StreamWriter(filePath))
+                    foreach (var item in uniqueItems)
+                    {
+                        writer.WriteLine(item);
+                    }
+                //MessageBox.Show("저장에 성공하였습니다.", "저장완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+            }
+            catch (Exception)
+            {
+
+                MessageBox.Show("저장중 오류가 발생하였습니다.", "에러", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+        }
+
+        private void OpenExistFolder()
+        {
+            string todayFolder = Path.Combine(Application.StartupPath, DateTime.Now.ToString("yyyy-MM-dd"));
+            // 해당 폴더가 존재하는지 확인
+            if (Directory.Exists(todayFolder))
+            {
+                // 폴더가 존재하면 폴더 열기
+                Process.Start(todayFolder);
+            }
+            else
+            {
+                MessageBox.Show("폴더를 먼저 생성해야 합니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void CheckIPAddress()
+        {
+            // 허용할 IP 주소 설정
+            string[] allowedIPAddress = { "112.216.108.130", "112.216.108.131" };
+
+            // 클라이언트의 IP 주소 가져오기
+            string clientIPAddress = GetClientIPAddress();
+
+            // 허용된 IP 주소와 클라이언트의 IP 주소 비교
+            if (!allowedIPAddress.Contains(clientIPAddress))
+            {
+                MessageBox.Show("허용되지 않은 IP 주소입니다. 프로그램을 종료합니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Environment.Exit(0);
+            }
+        }
+
+        private string GetClientIPAddress()
+        {
+            string externalip = string.Empty;
+
+            try
+            {
+                externalip = new WebClient().DownloadString("http://ipinfo.io/ip").Trim();
+
+                //if (string.IsNullOrWhiteSpace(externalip))
+                //{
+                //    externalip = GetLocalIP();//null경우 Get Internal IP를 가져오게 한다.
+                //}
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("IP 주소를 가져오는 동안 오류가 발생했습니다: " + ex.Message, "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            return externalip;
+        }
+
+        private void LboxPaths_DoubleClick(object sender, EventArgs e)
+        {
+            string selectedPath = Path.Combine(Application.StartupPath, DateTime.Now.ToString("yyyy-MM-dd"));
+
+            if (!string.IsNullOrEmpty(selectedPath))
+            {
+                if (Directory.Exists(selectedPath))
+                {
+                    Process.Start(selectedPath);
+                }
+                else
+                {
+                    MessageBox.Show("선택한 경로가 유효하지 않습니다.", "경고", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+        }
+
+        private void LboxShowLog_Path(string folderPath, string name)
+        {
+            string filePath = Path.Combine(folderPath, name);
+
+            lboxResult.Items.Add(filePath);
+            lboxResult.Items.Add(string.Format("{0} : 파일 생성 및 중복 로그 제거 완료 - 더블 클릭", name));
+        }
+
+        private void BackgroundWorker_DoWork(object sender, DoWorkEventArgs e)
+        {
+            var args = (Tuple<string, string>)e.Argument;
+            string folderPath = args.Item1;
+            string name = args.Item2;
+
+            string[] files = Directory.GetFiles(folderPath, "*.txt"); // 폴더 내의 모든 txt 파일 가져오기
+
+            HashSet<string> uniqueIPs = new HashSet<string>(); // 중복 없는 FM 주소를 저장할 HashSet 생성
+
+
+
+            int fileCount = files.Length;
+
+
+            // 각 파일에서 FM 검색
+            for (int i = 0; i < fileCount; i++)
+            {
+                string file = files[i];
+                SearchIPInFile(file, uniqueIPs);
+
+                // 작업 진행 상태 보고 (ProgressChanged 이벤트 발생)
+                int progressPercentage = (i + 1) * 100 / fileCount;
+                backgroundWorker.ReportProgress(progressPercentage);
+            }
+
+            e.Result = new Tuple<HashSet<string>, string>(uniqueIPs, name);
+        }
+
+        private void BackgroundWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            // 작업 진행 상태 업데이트
+            progressBarLoad.Value = e.ProgressPercentage;
+            LabelPercent.Text = $"{e.ProgressPercentage}%";
+        }
+
+        private void BackgroundWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            string folderPath = tboxSearch.Text;
+            // 백그라운드 작업 완료 후 처리
+            if (e.Error != null)
+            {
+                MessageBox.Show("작업 중 오류가 발생했습니다: " + e.Error.Message, "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            else
+            {
+                var result = (Tuple<HashSet<string>, string>)e.Result;
+                HashSet<string> uniqueIPs = result.Item1;
+                string name = result.Item2;
+
+                // 로그 저장
+                LboxShowLog_Path(folderPath, name);
+                SaveListBoxContent(uniqueIPs, name);
+            }
+        }
+
+        
+    }
+
+}
+
