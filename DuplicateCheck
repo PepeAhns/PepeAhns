@@ -334,7 +334,7 @@ namespace CustomTool_Test
         private void CheckIPAddress()
         {
             // 허용할 IP 주소 설정
-            string[] allowedIPAddress = { "112.216.108.130", "112.216.108.131" };
+            string[] allowedIPAddress = { "아이피주소1", "아이피주소2" };
 
             // 클라이언트의 IP 주소 가져오기
             string clientIPAddress = GetClientIPAddress();
